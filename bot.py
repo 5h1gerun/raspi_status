@@ -267,6 +267,7 @@ def render_graph(samples: list[MetricSample], label: str, output_dir: Path) -> P
     axes[0].plot(timestamps, cpu_series, label="CPU %", color="#ff7f0e")
     axes[0].plot(timestamps, memory_series, label="Memory %", color="#1f77b4")
     axes[0].set_ylabel("Usage %")
+    axes[0].set_title("CPU / Memory")
     axes[0].set_ylim(0, 100)
     axes[0].grid(alpha=0.3)
     axes[0].legend(loc="upper right")
@@ -274,17 +275,20 @@ def render_graph(samples: list[MetricSample], label: str, output_dir: Path) -> P
     axes[1].plot(timestamps, cpu_temp_series, label="CPU Temp °C", color="#d62728")
     axes[1].plot(timestamps, gpu_temp_series, label="GPU Temp °C", color="#2ca02c")
     axes[1].set_ylabel("Temp °C")
+    axes[1].set_title("Temperatures")
     axes[1].grid(alpha=0.3)
     axes[1].legend(loc="upper right")
 
     axes[2].plot(timestamps, net_sent_kbps, label="TX KB/s", color="#9467bd")
     axes[2].plot(timestamps, net_recv_kbps, label="RX KB/s", color="#8c564b")
     axes[2].set_ylabel("Throughput (KB/s)")
+    axes[2].set_title("Network Throughput")
     axes[2].grid(alpha=0.3)
     axes[2].legend(loc="upper right")
 
     axes[3].plot(timestamps, ping_series, label="Ping ms", color="#17becf")
     axes[3].set_ylabel("Ping (ms)")
+    axes[3].set_title("Network Quality & Throttling")
     axes[3].grid(alpha=0.3)
     ax4b = axes[3].twinx()
     loss_line = ax4b.plot(timestamps, packet_loss_series, label="Packet Loss %", color="#bcbd22")
@@ -404,7 +408,6 @@ class StatusBot(discord.Bot):
             (LONG_WINDOW, "last hour"),
         ]
         attachments: list[Path] = []
-        details = []
         loop = asyncio.get_running_loop()
 
         try:
@@ -417,15 +420,18 @@ class StatusBot(discord.Bot):
                     None, render_graph, relevant, label, self.graph_dir
                 )
                 attachments.append(file_path)
-                details.append(f"{label}: {len(relevant)} samples")
 
             if not attachments:
                 print("Not enough samples to produce scheduled report.")
                 return
 
             files = [discord.File(path) for path in attachments]
-            content = "JST 00分まとめレポート\n" + "\n".join(details)
-            await self.channel.send(content=content, files=files)
+            embed = None
+            if self.samples:
+                latest_sample = self.samples[-1]
+                embed = self._build_status_embed(latest_sample)
+
+            await self.channel.send(embed=embed, files=files)
         finally:
             for path in attachments:
                 try:
