@@ -1,3 +1,5 @@
 .env
-graphs
-__pycache__
+graphs/
+__pycache__/
+
+*.pyc
